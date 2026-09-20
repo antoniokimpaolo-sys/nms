@@ -94,6 +94,8 @@ async def _get_system(client: SNMPClient):
     return d
 
 
+HIKVISION_ENTERPRISE_ROOT = ".1.3.6.1.4.1.39165"
+
 HIKVISION_OIDS = {
     "hikIp": ".1.3.6.1.4.1.50001.1.1.0",
     "hikPort": ".1.3.6.1.4.1.50001.1.2.0",
@@ -118,6 +120,19 @@ async def _get_hikvision(client: SNMPClient):
             if norm == expected.lstrip("."):
                 d[k] = value
     return d
+
+
+async def _discover_enterprise(client: SNMPClient):
+    try:
+        result = await client.getnext(".1.3.6.1.2.1")
+        if not result:
+            return None
+        oid, value, tag = result[0]
+        if oid.startswith(HIKVISION_ENTERPRISE_ROOT + "."):
+            return {"oid": oid, "value": value, "tag": tag}
+    except Exception:
+        return None
+    return None
 
 
 def _usable(values: dict) -> bool:
@@ -255,8 +270,10 @@ async def poll_device(device_id: int, event_callback: Callable[[str, dict], Awai
                 try:
                     system = await _get_system(client)
                     hik = {}
+                    enterprise = None
                     if not _usable(system):
                         hik = await _get_hikvision(client)
+                        enterprise = await _discover_enterprise(client)
 
                     if _usable(system):
                         success = True
@@ -268,15 +285,15 @@ async def poll_device(device_id: int, event_callback: Callable[[str, dict], Awai
                         device.hostname = str(system.get("sysName") or device.hostname or device.ip)[:180]
                         uptime = safe_int(system.get("sysUpTime"))
                         device.uptime_seconds = int(uptime / 100) if uptime is not None else None
-                    elif _usable(hik):
+                    elif _usable(hik) or enterprise:
                         success = True
                         device.monitoring_method = "snmp"
                         device.vendor = "Hikvision"
                         entity_type = safe_int(hik.get("hikEntityType"))
-                        device.device_type = {1: "DVR", 2: "NVR", 3: "Camera"}.get(entity_type, device.device_type or "Camera")
-                        device.hostname = str(hik.get("hikObjectName") or hik.get("hikEntityIndex") or device.hostname or device.ip)[:180]
+                        device.device_type = {1: "DVR", 2: "NVR", 3: "Camera"}.get(entity_type, "Camera")
+                        device.hostname = str(hik.get("hikObjectName") or (enterprise or {}).get("value") or device.hostname or device.ip)[:180]
                         memory = safe_float(hik.get("hikMemoryUsage"))
-                        if memory is not None:
+                        if memory is not None and 0 <= memory <= 100:
                             device.memory_percent = memory
                         device.last_error = None
                     else:
