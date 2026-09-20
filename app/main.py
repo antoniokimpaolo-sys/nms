@@ -284,11 +284,13 @@ async def test_snmp(payload: SNMPTest):
             ".1.3.6.1.2.1.1.5.0",
         ]
         hikvision_oids = [
-            ".1.3.6.1.4.1.50001.1.1.0",
-            ".1.3.6.1.4.1.50001.1.100.0",
-            ".1.3.6.1.4.1.50001.1.102.0",
-            ".1.3.6.1.4.1.50001.1.221.0",
-            ".1.3.6.1.4.1.50001.1.230.0",
+            ".1.3.6.1.4.1.39165.1.1.0",
+            ".1.3.6.1.4.1.39165.1.2.0",
+            ".1.3.6.1.4.1.39165.1.3.0",
+            ".1.3.6.1.4.1.39165.1.100.0",
+            ".1.3.6.1.4.1.39165.1.200.0",
+            ".1.3.6.1.4.1.39165.1.221.0",
+            ".1.3.6.1.4.1.39165.1.230.0",
         ]
         standard = await client.get(standard_oids)
         usable_standard = any(v not in ("noSuchObject", "noSuchInstance", "endOfMibView", None) for _, v, _ in standard)
@@ -296,12 +298,27 @@ async def test_snmp(payload: SNMPTest):
             return {"ok": True, "profile": "SNMPv2-MIB", "message": "SNMP v2c response received.", "values": standard}
         hik = await client.get(hikvision_oids)
         usable_hik = any(v not in ("noSuchObject", "noSuchInstance", "endOfMibView", None) for _, v, _ in hik)
+        discovered = None
+        if not usable_hik:
+            try:
+                first = await client.getnext(".1.3.6.1.2.1")
+                if first and first[0][0].startswith(".1.3.6.1.4.1.39165."):
+                    discovered = first[0]
+            except Exception:
+                pass
+        detected = usable_hik or discovered is not None
         return {
-            "ok": usable_hik,
-            "profile": "Hikvision MIB" if usable_hik else "Unknown",
-            "message": "SNMP agent responded; Hikvision enterprise MIB detected." if usable_hik else "SNMP agent responded but none of the tested standard/Hikvision objects were available.",
+            "ok": detected,
+            "profile": "Hikvision Enterprise 39165" if detected else "Unknown",
+            "message": (
+                "Hikvision SNMP detected via enterprise OID 1.3.6.1.4.1.39165."
+                + (f" First object: {discovered[0]} = {discovered[1]}" if discovered else "")
+                if detected else
+                "SNMP agent responded but no supported standard or discovered Hikvision enterprise object was found."
+            ),
             "standard_values": standard,
             "hikvision_values": hik,
+            "discovered": discovered,
         }
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
