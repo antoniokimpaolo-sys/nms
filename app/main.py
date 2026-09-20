@@ -277,15 +277,33 @@ def sites(db: Session = Depends(get_db)):
 async def test_snmp(payload: SNMPTest):
     try:
         client = SNMPClient(payload.ip, payload.community, payload.port, payload.timeout, retries=0)
-        results = await client.get([
+        standard_oids = [
             ".1.3.6.1.2.1.1.1.0",
             ".1.3.6.1.2.1.1.2.0",
             ".1.3.6.1.2.1.1.3.0",
             ".1.3.6.1.2.1.1.5.0",
-        ])
-        data = {oid.lstrip("."): value for oid, value, _tag in results}
-        return {"ok": True, "sysDescr": data.get("1.3.6.1.2.1.1.1.0"), "values": results}
-    except (SNMPError, Exception) as exc:
+        ]
+        hikvision_oids = [
+            ".1.3.6.1.4.1.50001.1.1.0",
+            ".1.3.6.1.4.1.50001.1.100.0",
+            ".1.3.6.1.4.1.50001.1.102.0",
+            ".1.3.6.1.4.1.50001.1.221.0",
+            ".1.3.6.1.4.1.50001.1.230.0",
+        ]
+        standard = await client.get(standard_oids)
+        usable_standard = any(v not in ("noSuchObject", "noSuchInstance", "endOfMibView", None) for _, v, _ in standard)
+        if usable_standard:
+            return {"ok": True, "profile": "SNMPv2-MIB", "message": "SNMP v2c response received.", "values": standard}
+        hik = await client.get(hikvision_oids)
+        usable_hik = any(v not in ("noSuchObject", "noSuchInstance", "endOfMibView", None) for _, v, _ in hik)
+        return {
+            "ok": usable_hik,
+            "profile": "Hikvision MIB" if usable_hik else "Unknown",
+            "message": "SNMP agent responded; Hikvision enterprise MIB detected." if usable_hik else "SNMP agent responded but none of the tested standard/Hikvision objects were available.",
+            "standard_values": standard,
+            "hikvision_values": hik,
+        }
+    except Exception as exc:
         return {"ok": False, "error": str(exc)}
 
 
