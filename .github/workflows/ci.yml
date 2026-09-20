@@ -20,3 +20,4 @@ jobs:
         with:
           node-version: "22"
       - run: node --check app/static/app.js
+      - run: docker build -t smartcity-nms:ci .
