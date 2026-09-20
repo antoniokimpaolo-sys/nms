@@ -218,6 +218,10 @@ async def ping_host(host: str, timeout_ms: int = 1000) -> tuple[bool, float | No
     return False, None
 
 
+def is_exception_value(value: Any) -> bool:
+    return value in ("noSuchObject", "noSuchInstance", "endOfMibView")
+
+
 def safe_float(v):
     try:
         return float(v)
