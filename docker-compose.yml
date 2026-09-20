@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: smartcity-nms-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smartcity_nms
+      POSTGRES_USER: nms
+      POSTGRES_PASSWORD: change-me-now
+    volumes:
+      - nms-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nms -d smartcity_nms"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  nms:
+    build: .
+    container_name: smartcity-nms
+    restart: unless-stopped
+    environment:
+      APP_NAME: Smart City NMS
+      HOST: 0.0.0.0
+      PORT: 8080
+      DATABASE_URL: postgresql+psycopg2://nms:change-me-now@postgres:5432/smartcity_nms
+      POLL_CONCURRENCY: 32
+      DEFAULT_POLL_INTERVAL: 10
+      SNMP_TIMEOUT: 1.5
+      SNMP_RETRIES: 1
+      CREDENTIAL_SECRET: change-this-in-production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+volumes:
+  nms-postgres:
