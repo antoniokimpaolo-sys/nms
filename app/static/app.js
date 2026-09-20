@@ -7,6 +7,58 @@ function esc(v){return String(v ?? '').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':
 function fmtAge(iso){ if(!iso) return '—'; const sec=Math.max(0,Math.floor((Date.now()-new Date(iso).getTime())/1000)); if(sec<60)return `${sec}s ago`; if(sec<3600)return `${Math.floor(sec/60)}m ago`; return `${Math.floor(sec/3600)}h ago`; }
 function uptime(sec){if(!sec)return '—';const d=Math.floor(sec/86400),h=Math.floor((sec%86400)/3600),m=Math.floor((sec%3600)/60);return `${d}d ${h}h ${m}m`;}
 function bps(v){if(v==null)return '—';const n=Number(v);if(n>=1e9)return `${(n/1e9).toFixed(2)} Gbps`;if(n>=1e6)return `${(n/1e6).toFixed(1)} Mbps`;if(n>=1e3)return `${(n/1e3).toFixed(1)} Kbps`;return `${n.toFixed(0)} bps`;}
+const BRAND_PROFILES = {
+  Cisco:{slug:"cisco",label:"Cisco",fallback:"C",className:"brand-cisco"},
+  MikroTik:{slug:"mikrotik",label:"MikroTik",fallback:"M",className:"brand-mikrotik"},
+  Fortinet:{slug:"fortinet",label:"Fortinet",fallback:"F",className:"brand-fortinet"},
+  "TP-Link":{slug:"tplink",label:"TP-Link",fallback:"TP",className:"brand-tplink"},
+  Ubiquiti:{slug:"ubiquiti",label:"Ubiquiti",fallback:"U",className:"brand-ubiquiti"},
+  Huawei:{slug:"huawei",label:"Huawei",fallback:"H",className:"brand-huawei"},
+  ZTE:{slug:"zte",label:"ZTE",fallback:"Z",className:"brand-zte"},
+  Hikvision:{slug:"hikvision",label:"Hikvision",fallback:"H",className:"brand-hikvision"},
+  Axis:{slug:"axis",label:"Axis",fallback:"A",className:"brand-axis"},
+  Grandstream:{slug:"grandstream",label:"Grandstream",fallback:"G",className:"brand-grandstream"},
+  HPE:{slug:"hpe",label:"HPE",fallback:"H",className:"brand-hpe"},
+  Aruba:{slug:"arubanetworks",label:"Aruba",fallback:"A",className:"brand-aruba"},
+  Juniper:{slug:"junipernetworks",label:"Juniper",fallback:"J",className:"brand-juniper"},
+  Dell:{slug:"dell",label:"Dell",fallback:"D",className:"brand-dell"},
+  HP:{slug:"hp",label:"HP",fallback:"HP",className:"brand-hp"}
+};
+
+function inferBrand(d){
+  const text=[d?.vendor,d?.model,d?.os,d?.device_type,d?.name].filter(Boolean).join(" ").toLowerCase();
+  if(d?.vendor && BRAND_PROFILES[d.vendor]) return d.vendor;
+  if(/hikvision|ds-2cd|ds-2|hik/.test(text)) return "Hikvision";
+  if(/mikrotik|routeros|crs\d|ccr\d|rb\d/.test(text)) return "MikroTik";
+  if(/cisco|cbs\d|catalyst|isr\d/.test(text)) return "Cisco";
+  if(/tp-link|tplink|sg342|sg3\d|eap\d/.test(text)) return "TP-Link";
+  if(/fortinet|fortigate|fortios/.test(text)) return "Fortinet";
+  if(/ubiquiti|unifi|edgeos/.test(text)) return "Ubiquiti";
+  if(/axis|p1375|m30|q17/.test(text)) return "Axis";
+  if(/grandstream|gwn|ucm/.test(text)) return "Grandstream";
+  if(/huawei/.test(text)) return "Huawei";
+  if(/zte/.test(text)) return "ZTE";
+  if(/aruba/.test(text)) return "Aruba";
+  if(/hpe/.test(text)) return "HPE";
+  if(/juniper/.test(text)) return "Juniper";
+  if(/dell/.test(text)) return "Dell";
+  return null;
+}
+
+function brandLogoHtml(d){
+  const brand=inferBrand(d), p=brand && BRAND_PROFILES[brand];
+  if(!p){
+    const type=String(d?.device_type||"").toLowerCase();
+    const icon=type.includes("camera")||type.includes("nvr")?"◉":"▣";
+    return '<div class="brand-badge brand-generic" title="Generic device">'+icon+'</div>';
+  }
+  const src="https://cdn.simpleicons.org/"+p.slug;
+  return '<div class="brand-badge '+p.className+'" title="'+esc(p.label)+'">'+
+    '<img src="'+src+'" alt="'+esc(p.label)+'" loading="lazy" onerror="this.style.display=\\'none\\';this.nextElementSibling.style.display=\\'grid\\';">'+
+    '<span>'+esc(p.fallback)+'</span>'+
+  '</div>';
+}
+
 function statusPill(s){return `<span class="status ${esc(s)}"><i></i>${esc((s||'unknown').toUpperCase())}</span>`;}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600);}
 
@@ -35,12 +87,47 @@ async function loadDashboard(){
   renderActivity();
 }
 
-function renderDashDevices(devs){$('#dash-devices').innerHTML=devs.map(d=>`<tr data-device-id="${d.id}" class="device-row"><td><strong>${esc(d.name)}</strong></td><td>${esc(d.ip)}</td><td>${esc(d.vendor||'—')}</td><td>${statusPill(d.status)}</td><td>${d.cpu_percent==null?'—':d.cpu_percent+'%'}</td><td>${d.latency_ms==null?'—':d.latency_ms+' ms'}</td><td>${fmtAge(d.last_poll_at)}</td></tr>`).join('') || `<tr><td colspan="7" class="empty">No devices configured.</td></tr>`; $$('#dash-devices .device-row').forEach(x=>x.onclick=()=>openDevice(x.dataset.deviceId));}
+function renderDashDevices(devs){$('#dash-devices').innerHTML=devs.map(d=>`<tr data-device-id="${d.id}" class="device-row"><td>${brandLogoHtml(d)}</td><td><strong>${esc(d.name)}</strong></td><td>${esc(d.ip)}</td><td>${esc(d.vendor||inferBrand(d)||'—')}</td><td>${statusPill(d.status)}</td><td>${d.cpu_percent==null?'—':d.cpu_percent+'%'}</td><td>${d.latency_ms==null?'—':d.latency_ms+' ms'}</td><td>${fmtAge(d.last_poll_at)}</td></tr>`).join('') || `<tr><td colspan="7" class="empty">No devices configured.</td></tr>`; $$('#dash-devices .device-row').forEach(x=>x.onclick=()=>openDevice(x.dataset.deviceId));}
 async function loadRecentAlerts(){const a=await api('/api/alerts?status=active&limit=8');$('#recent-alerts').innerHTML=a.map(x=>`<div class="activity"><i class="status-dot ${esc(x.severity)}"></i><div><h4>${esc(x.ip||x.device||'Device')} — ${esc(x.type)}</h4><p>${esc(x.message)}</p></div><time>${fmtAge(x.last_detected)}</time></div>`).join('')||'<div class="empty">No active alerts.</div>';}
 
 function renderActivity(){const box=$('#activity-chart');if(!box)return;box.innerHTML='';const a=Array.from({length:28},(_,i)=>activity[i]||0);a.forEach(v=>{const b=document.createElement('div');b.className='mini-bar';b.style.height=`${8+Math.min(92,v*18)}%`;box.appendChild(b);});}
 
-async function renderDevices(){let q=$('#device-search').value.trim();let st=$('#device-status-filter').value;const query=new URLSearchParams();if(q)query.set('q',q);if(st)query.set('status',st);const devs=await api('/api/devices?'+query.toString());devicesCache=devs;$('#device-count-label').textContent=`${devs.length} monitored devices`;const vendors=[...new Set(devs.map(d=>d.vendor).filter(Boolean))].sort();const sel=$('#device-vendor-filter');const keep=sel.value;sel.innerHTML='<option value="">All Vendors</option>'+vendors.map(v=>`<option>${esc(v)}</option>`).join('');sel.value=keep;$('#devices-table').innerHTML=devs.map(d=>`<tr data-device-id="${d.id}" class="device-row"><td><strong>${esc(d.name)}</strong></td><td>${esc(d.ip)}</td><td>${esc(d.vendor||'—')}</td><td>${esc(d.device_type||'—')}</td><td>${esc(d.site||'—')}</td><td>${statusPill(d.status)}</td><td>${d.cpu_percent==null?'—':d.cpu_percent+'%'}</td><td>${uptime(d.uptime_seconds)}</td><td>${fmtAge(d.last_poll_at)}</td><td><div class="row-actions"><button class="table-action" onclick="openEditDeviceModal(${d.id});event.stopPropagation()">Edit</button><button class="table-action danger" onclick="deleteDeviceQuick(${d.id});event.stopPropagation()">Delete</button></div></td></tr>`).join('')||'<tr><td colspan="9" class="empty">No matching devices.</td></tr>'; $$('#devices-table .device-row').forEach(x=>x.onclick=()=>openDevice(x.dataset.deviceId));}
+async function renderDevices(){
+  let q=$('#device-search').value.trim();
+  let st=$('#device-status-filter').value;
+  const query=new URLSearchParams();
+  if(q)query.set('q',q);
+  if(st)query.set('status',st);
+  const devs=await api('/api/devices?'+query.toString());
+  devicesCache=devs;
+  $('#device-count-label').textContent=\`${devs.length} monitored devices\`;
+  const vendors=[...new Set(devs.map(d=>inferBrand(d)||d.vendor).filter(Boolean))].sort();
+  const sel=$('#device-vendor-filter');
+  const keep=sel.value;
+  sel.innerHTML='<option value="">All Vendors</option>'+vendors.map(v=>\`<option>${esc(v)}</option>\`).join('');
+  sel.value=keep;
+
+  const rows=devs.map(d=>\`<tr data-device-id="${d.id}" class="device-row">
+    <td>${brandLogoHtml(d)}</td>
+    <td><strong>${esc(d.name)}</strong></td>
+    <td>${esc(d.ip)}</td>
+    <td>${esc(d.vendor||inferBrand(d)||'—')}</td>
+    <td>${esc(d.device_type||'—')}</td>
+    <td>${esc(d.site||'—')}</td>
+    <td>${statusPill(d.status)}</td>
+    <td>${d.cpu_percent==null?'—':d.cpu_percent+'%'}</td>
+    <td>${uptime(d.uptime_seconds)}</td>
+    <td>${fmtAge(d.last_poll_at)}</td>
+    <td><div class="row-actions">
+      <button class="table-action" onclick="openEditDeviceModal(${d.id});event.stopPropagation()">Edit</button>
+      <button class="table-action danger" onclick="deleteDeviceQuick(${d.id});event.stopPropagation()">Delete</button>
+    </div></td>
+  </tr>\`).join('');
+
+  $('#devices-table').innerHTML=rows||'<tr><td colspan="11" class="empty">No matching devices.</td></tr>';
+  $$('#devices-table .device-row').forEach(x=>x.onclick=()=>openDevice(x.dataset.deviceId));
+}
+
 
 async function renderAlerts(){const f=$('#alert-filter').value;const a=await api('/api/alerts?status='+f+'&limit=200');$('#alerts-table').innerHTML=a.map(x=>`<tr><td><span class="status ${x.severity==='critical'||x.severity==='major'?'offline':'warning'}"><i></i>${esc(x.severity.toUpperCase())}</span></td><td><strong>${esc(x.device||'—')}</strong><br><span class="muted">${esc(x.ip||'')}</span></td><td>${esc(x.type)}</td><td>${esc(x.message)}</td><td>${new Date(x.first_detected).toLocaleString()}</td><td>${esc(x.status)}</td><td>${x.status==='active'?`<button class="link-btn" onclick="ackAlert(${x.id})">Acknowledge</button>`:''}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No alerts.</td></tr>';}
 async function ackAlert(id){await api(`/api/alerts/${id}/acknowledge`,{method:'POST'});toast('Alert acknowledged');renderAlerts();loadDashboard();}
@@ -179,3 +266,5 @@ async function deleteDeviceQuick(id){
 }
 window.openEditDeviceModal=openEditDeviceModal;
 window.deleteDeviceQuick=deleteDeviceQuick;
+
+window.brandLogoHtml=brandLogoHtml; window.inferBrand=inferBrand;
