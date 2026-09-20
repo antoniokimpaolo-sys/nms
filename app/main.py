@@ -77,6 +77,19 @@ class DeviceCreate(BaseModel):
     poll_interval: int = Field(default=10, ge=5, le=3600)
 
 
+class DeviceUpdate(BaseModel):
+    name: str
+    ip: str
+    hostname: str | None = None
+    vendor: str | None = None
+    model: str | None = None
+    device_type: str = "Network Device"
+    site_id: int | None = None
+    snmp_version: str = "2c"
+    community: str | None = None
+    poll_interval: int = Field(default=10, ge=5, le=3600)
+
+
 class SiteCreate(BaseModel):
     name: str
     address: str | None = None
@@ -238,6 +251,43 @@ async def create_device(payload: DeviceCreate, db: Session = Depends(get_db)):
         poll_interval=payload.poll_interval,
     )
     db.add(d)
+    db.commit()
+    db.refresh(d)
+    return _device_dict(d)
+
+
+@app.put("/api/devices/{device_id}")
+def update_device(device_id: int, payload: DeviceUpdate, db: Session = Depends(get_db)):
+    d = db.get(Device, device_id)
+    if not d:
+        raise HTTPException(404, "Device not found")
+
+    duplicate = db.scalar(
+        select(Device).where(Device.ip == payload.ip, Device.id != device_id)
+    )
+    if duplicate:
+        raise HTTPException(409, "Another device already uses this IP")
+
+    d.name = payload.name.strip()
+    d.ip = payload.ip.strip()
+    d.hostname = payload.hostname.strip() if payload.hostname else None
+    d.vendor = payload.vendor.strip() if payload.vendor else None
+    d.model = payload.model.strip() if payload.model else None
+    d.device_type = payload.device_type
+    d.site_id = payload.site_id
+    d.snmp_version = payload.snmp_version
+    d.poll_interval = payload.poll_interval
+
+    # Blank community means "keep the current credential".
+    # Supplying a value replaces the stored encrypted credential.
+    if payload.community:
+        d.snmp_community = encrypt(payload.community)
+        d.monitoring_method = "snmp"
+    elif d.snmp_community:
+        d.monitoring_method = "snmp"
+    else:
+        d.monitoring_method = "icmp"
+
     db.commit()
     db.refresh(d)
     return _device_dict(d)
