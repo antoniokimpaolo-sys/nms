@@ -46,6 +46,24 @@
 
     <section class="content" id="page-dashboard">
       <div class="welcome"><h1>Welcome back, Kim 👋</h1><p>Live network visibility across the Smart City infrastructure.</p></div>
+      <div class="dashboard-toolbar">
+        <div>
+          <div class="welcome"><h1>Smart City NMS Dashboard</h1><p>LibreNMS-style customizable widgets powered by live SNMP / ICMP data.</p></div>
+        </div>
+        <div class="dashboard-actions">
+          <span class="dashboard-state" id="dashboard-state">VIEW MODE</span>
+          <button class="secondary" id="dashboard-add-widget">＋ Add Widget</button>
+          <button class="secondary" id="dashboard-edit-toggle">Edit Layout</button>
+          <button class="secondary" id="dashboard-reset">Reset</button>
+        </div>
+      </div>
+      <div class="widget-grid" id="widget-grid"></div>
+      <div class="dashboard-empty hidden" id="widget-empty">
+        <div class="empty-icon">▦</div>
+        <h3>Your dashboard is empty</h3>
+        <p>Add widgets to build your Smart City NOC dashboard.</p>
+        <button class="primary" id="empty-add-widget">＋ Add Widget</button>
+      </div>
       <div class="kpi-grid">
         <div class="card kpi"><div class="kpi-label">TOTAL DEVICES <span>▣</span></div><div class="kpi-value" id="kpi-total">0</div><div class="kpi-sub neutral">Live inventory</div></div>
         <div class="card kpi"><div class="kpi-label">ONLINE DEVICES <span class="green">✓</span></div><div class="kpi-value" id="kpi-online">0</div><div class="kpi-sub good" id="kpi-online-sub">0% availability</div></div>
@@ -92,8 +110,9 @@
   </main>
 
   <div class="modal hidden" id="device-modal"><div class="modal-box"><div class="modal-head"><div><h2>Add Device</h2><p>Configure SNMP v2c or ICMP fallback.</p></div><button class="close" data-close="device-modal">×</button></div><form id="device-form"><div class="form-grid"><label>Name<input name="name" required placeholder="Abanao Core Switch"></label><label>IP Address<input name="ip" required placeholder="10.50.20.1"></label><label>Device Type<select name="device_type"><option>Network Device</option><option>Router</option><option>Switch</option><option>Firewall</option><option>Camera</option><option>NVR</option><option>Server</option><option>Air Quality Sensor</option></select></label><label>Site ID<input name="site_id" type="number" placeholder="optional"></label><label>SNMP Version<select name="snmp_version"><option value="2c">SNMP v2c</option></select></label><label>Community<input name="community" type="password" placeholder="public"></label><label>Poll Interval (sec)<input name="poll_interval" type="number" min="5" value="10"></label></div><div class="modal-actions"><button type="button" class="secondary" id="test-snmp">Test SNMP</button><span id="snmp-result" class="form-note"></span><button class="primary" type="submit">Save Device</button></div></form></div></div>
+  <div class="modal hidden" id="widget-modal"><div class="modal-box"><div class="modal-head"><div><h2>Add Dashboard Widget</h2><p>Select widgets to add to your dashboard.</p></div><button class="close" data-close="widget-modal">×</button></div><div class="widget-picker" id="widget-picker"></div><div class="modal-actions"><button class="secondary" data-close="widget-modal">Cancel</button><button class="primary" id="add-selected-widgets">Add Selected</button></div></div></div>
   <div class="modal hidden" id="detail-modal"><div class="modal-box wide"><div id="detail-content"></div></div></div>
   <div class="toast" id="toast"></div>
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js"></script><script src="/static/widgets.js?v=20260920"></script>
 </body>
 </html>
