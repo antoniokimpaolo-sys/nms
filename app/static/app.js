@@ -98,34 +98,44 @@ async function renderDevices(){
   const query=new URLSearchParams();
   if(q)query.set('q',q);
   if(st)query.set('status',st);
+
   const devs=await api('/api/devices?'+query.toString());
   devicesCache=devs;
-  $('#device-count-label').textContent=\`${devs.length} monitored devices\`;
+  $('#device-count-label').textContent=`${devs.length} monitored devices`;
+
   const vendors=[...new Set(devs.map(d=>inferBrand(d)||d.vendor).filter(Boolean))].sort();
   const sel=$('#device-vendor-filter');
   const keep=sel.value;
-  sel.innerHTML='<option value="">All Vendors</option>'+vendors.map(v=>\`<option>${esc(v)}</option>\`).join('');
+  sel.innerHTML='<option value="">All Vendors</option>'+
+    vendors.map(v=>`<option>${esc(v)}</option>`).join('');
   sel.value=keep;
 
-  const rows=devs.map(d=>\`<tr data-device-id="${d.id}" class="device-row">
-    <td>${brandLogoHtml(d)}</td>
-    <td><strong>${esc(d.name)}</strong></td>
-    <td>${esc(d.ip)}</td>
-    <td>${esc(d.vendor||inferBrand(d)||'—')}</td>
-    <td>${esc(d.device_type||'—')}</td>
-    <td>${esc(d.site||'—')}</td>
-    <td>${statusPill(d.status)}</td>
-    <td>${d.cpu_percent==null?'—':d.cpu_percent+'%'}</td>
-    <td>${uptime(d.uptime_seconds)}</td>
-    <td>${fmtAge(d.last_poll_at)}</td>
-    <td><div class="row-actions">
-      <button class="table-action" onclick="openEditDeviceModal(${d.id});event.stopPropagation()">Edit</button>
-      <button class="table-action danger" onclick="deleteDeviceQuick(${d.id});event.stopPropagation()">Delete</button>
-    </div></td>
-  </tr>\`).join('');
+  const rows=devs.map(d=>`
+    <tr data-device-id="${d.id}" class="device-row">
+      <td>${brandLogoHtml(d)}</td>
+      <td><strong>${esc(d.name)}</strong></td>
+      <td>${esc(d.ip)}</td>
+      <td>${esc(d.vendor||inferBrand(d)||'—')}</td>
+      <td>${esc(d.device_type||'—')}</td>
+      <td>${esc(d.site||'—')}</td>
+      <td>${statusPill(d.status)}</td>
+      <td>${d.cpu_percent==null?'—':d.cpu_percent+'%'}</td>
+      <td>${uptime(d.uptime_seconds)}</td>
+      <td>${fmtAge(d.last_poll_at)}</td>
+      <td>
+        <div class="row-actions">
+          <button class="table-action" onclick="openEditDeviceModal(${d.id});event.stopPropagation()">Edit</button>
+          <button class="table-action danger" onclick="deleteDeviceQuick(${d.id});event.stopPropagation()">Delete</button>
+        </div>
+      </td>
+    </tr>`).join('');
 
-  $('#devices-table').innerHTML=rows||'<tr><td colspan="11" class="empty">No matching devices.</td></tr>';
-  $$('#devices-table .device-row').forEach(x=>x.onclick=()=>openDevice(x.dataset.deviceId));
+  $('#devices-table').innerHTML=rows ||
+    '<tr><td colspan="11" class="empty">No matching devices.</td></tr>';
+
+  $$('#devices-table .device-row').forEach(x=>{
+    x.onclick=()=>openDevice(x.dataset.deviceId);
+  });
 }
 
 
