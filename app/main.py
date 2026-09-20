@@ -88,7 +88,7 @@ class SNMPTest(BaseModel):
     ip: str
     community: str = "public"
     port: int = 161
-    timeout: float = 1.5
+    timeout: float = Field(default=5.0, ge=1.0, le=15.0)
 
 
 @app.get("/")
@@ -276,7 +276,7 @@ def sites(db: Session = Depends(get_db)):
 @app.post("/api/snmp/test")
 async def test_snmp(payload: SNMPTest):
     try:
-        client = SNMPClient(payload.ip, payload.community, payload.port, payload.timeout, retries=0)
+        client = SNMPClient(payload.ip, payload.community, payload.port, payload.timeout, retries=1)
         standard_oids = [
             ".1.3.6.1.2.1.1.1.0",
             ".1.3.6.1.2.1.1.2.0",
