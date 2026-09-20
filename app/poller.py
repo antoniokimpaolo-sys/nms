@@ -94,6 +94,36 @@ async def _get_system(client: SNMPClient):
     return d
 
 
+HIKVISION_OIDS = {
+    "hikIp": ".1.3.6.1.4.1.50001.1.1.0",
+    "hikPort": ".1.3.6.1.4.1.50001.1.2.0",
+    "hikEntityIndex": ".1.3.6.1.4.1.50001.1.3.0",
+    "hikEntityType": ".1.3.6.1.4.1.50001.1.100.0",
+    "hikOnline": ".1.3.6.1.4.1.50001.1.102.0",
+    "hikObjectName": ".1.3.6.1.4.1.50001.1.106.0",
+    "hikCPUNum": ".1.3.6.1.4.1.50001.1.200.0",
+    "hikCPUFrequency": ".1.3.6.1.4.1.50001.1.201.0",
+    "hikMemoryCapability": ".1.3.6.1.4.1.50001.1.220.0",
+    "hikMemoryUsage": ".1.3.6.1.4.1.50001.1.221.0",
+    "hikDeviceStatus": ".1.3.6.1.4.1.50001.1.230.0",
+}
+
+
+async def _get_hikvision(client: SNMPClient):
+    results = await client.get(list(HIKVISION_OIDS.values()))
+    d = {}
+    for oid, value, _tag in results:
+        norm = oid.lstrip(".")
+        for k, expected in HIKVISION_OIDS.items():
+            if norm == expected.lstrip("."):
+                d[k] = value
+    return d
+
+
+def _usable(values: dict) -> bool:
+    return any(v not in ("noSuchObject", "noSuchInstance", "endOfMibView", None) for v in values.values())
+
+
 async def _discover_indexes(client: SNMPClient, base: str, limit: int = 512) -> list[int]:
     cursor = base
     found: list[int] = []
@@ -224,19 +254,40 @@ async def poll_device(device_id: int, event_callback: Callable[[str, dict], Awai
                 )
                 try:
                     system = await _get_system(client)
-                    success = True
-                    device.monitoring_method = "snmp"
-                    descr = str(system.get("sysDescr") or "")
-                    device.vendor = detect_vendor(descr, str(system.get("sysObjectID") or ""))
-                    device.device_type = detect_device_type(device.vendor, descr)
-                    device.os = descr[:120] or device.os
-                    device.hostname = str(system.get("sysName") or device.hostname or device.ip)[:180]
-                    uptime = safe_int(system.get("sysUpTime"))
-                    device.uptime_seconds = int(uptime / 100) if uptime is not None else None
+                    hik = {}
+                    if not _usable(system):
+                        hik = await _get_hikvision(client)
+
+                    if _usable(system):
+                        success = True
+                        device.monitoring_method = "snmp"
+                        descr = str(system.get("sysDescr") or "")
+                        device.vendor = detect_vendor(descr, str(system.get("sysObjectID") or ""))
+                        device.device_type = detect_device_type(device.vendor, descr)
+                        device.os = descr[:120] or device.os
+                        device.hostname = str(system.get("sysName") or device.hostname or device.ip)[:180]
+                        uptime = safe_int(system.get("sysUpTime"))
+                        device.uptime_seconds = int(uptime / 100) if uptime is not None else None
+                    elif _usable(hik):
+                        success = True
+                        device.monitoring_method = "snmp"
+                        device.vendor = "Hikvision"
+                        entity_type = safe_int(hik.get("hikEntityType"))
+                        device.device_type = {1: "DVR", 2: "NVR", 3: "Camera"}.get(entity_type, device.device_type or "Camera")
+                        device.hostname = str(hik.get("hikObjectName") or hik.get("hikEntityIndex") or device.hostname or device.ip)[:180]
+                        memory = safe_float(hik.get("hikMemoryUsage"))
+                        if memory is not None:
+                            device.memory_percent = memory
+                        device.last_error = None
+                    else:
+                        raise SNMPError("SNMP agent responded but no supported standard MIB or Hikvision MIB objects were returned")
+
                     try:
                         metrics = await client.get([CPU_OID])
                         md = {oid.lstrip("."): val for oid, val, _ in metrics}
-                        device.cpu_percent = safe_float(md.get(CPU_OID.lstrip(".")))
+                        raw_cpu = safe_float(md.get(CPU_OID.lstrip(".")))
+                        if raw_cpu is not None and 0 <= raw_cpu <= 100:
+                            device.cpu_percent = raw_cpu
                     except Exception:
                         pass
                     await _poll_interfaces(client, db, device, now)
