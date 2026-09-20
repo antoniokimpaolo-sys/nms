@@ -129,6 +129,83 @@ def dashboard_summary(db: Session = Depends(get_db)):
     }
 
 
+@app.get("/api/dashboard/widget/top-devices")
+def dashboard_top_devices(metric: str = "cpu", limit: int = 10, db: Session = Depends(get_db)):
+    limit = max(1, min(limit, 50))
+    columns = {
+        "cpu": Device.cpu_percent,
+        "memory": Device.memory_percent,
+        "uptime": Device.uptime_seconds,
+        "latency": Device.latency_ms,
+    }
+    column = columns.get(metric, Device.cpu_percent)
+    rows = db.scalars(select(Device).order_by(column.desc().nullslast()).limit(limit)).all()
+    return [_device_dict(d) for d in rows]
+
+
+@app.get("/api/dashboard/widget/top-interfaces")
+def dashboard_top_interfaces(limit: int = 10, db: Session = Depends(get_db)):
+    limit = max(1, min(limit, 50))
+    rows = db.execute(
+        select(Interface, Device.name, Device.ip)
+        .join(Device, Interface.device_id == Device.id)
+        .order_by((func.coalesce(Interface.rx_bps, 0) + func.coalesce(Interface.tx_bps, 0)).desc())
+        .limit(limit)
+    ).all()
+    return [
+        {
+            "id": i.id,
+            "device": name,
+            "ip": ip,
+            "name": i.name,
+            "oper_status": i.oper_status,
+            "speed_mbps": i.speed_mbps,
+            "rx_bps": i.rx_bps,
+            "tx_bps": i.tx_bps,
+            "total_bps": (i.rx_bps or 0) + (i.tx_bps or 0),
+            "rx_errors": i.rx_errors,
+            "tx_errors": i.tx_errors,
+        }
+        for i, name, ip in rows
+    ]
+
+
+@app.get("/api/dashboard/widget/sites")
+def dashboard_widget_sites(db: Session = Depends(get_db)):
+    sites = db.scalars(select(Site).order_by(Site.name)).all()
+    results = []
+    for site in sites:
+        total = len(site.devices)
+        online = sum(1 for d in site.devices if d.status == "online")
+        results.append({
+            "id": site.id,
+            "name": site.name,
+            "address": site.address,
+            "latitude": site.latitude,
+            "longitude": site.longitude,
+            "total": total,
+            "online": online,
+            "offline": total - online,
+            "health": round((online / total) * 100, 1) if total else 0,
+        })
+    return results
+
+
+@app.get("/api/dashboard/widget/polling")
+def dashboard_polling_health(db: Session = Depends(get_db)):
+    total = db.scalar(select(func.count(Device.id))) or 0
+    fresh = db.scalar(select(func.count(Device.id)).where(Device.last_success_at.is_not(None))) or 0
+    snmp = db.scalar(select(func.count(Device.id)).where(Device.monitoring_method == "snmp")) or 0
+    icmp = db.scalar(select(func.count(Device.id)).where(Device.monitoring_method == "icmp")) or 0
+    return {
+        "total": total,
+        "fresh": fresh,
+        "snmp": snmp,
+        "icmp": icmp,
+        "coverage": round((fresh / total) * 100, 1) if total else 0,
+    }
+
+
 @app.get("/api/devices")
 def devices(status: str | None = None, site_id: int | None = None, q: str | None = None, db: Session = Depends(get_db)):
     stmt = select(Device).order_by(Device.name)
