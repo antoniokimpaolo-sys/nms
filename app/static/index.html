@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart City NMS</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark">✦</div><div><strong>Smart City NMS</strong><span>NETWORK OPS CENTER</span></div></div>
+    <nav>
+      <div class="nav-title">NETWORK MONITORING</div>
+      <button class="nav-item active" data-page="dashboard">▦ <span>Dashboard</span></button>
+      <button class="nav-item" data-page="map">⌖ <span>Network Map</span></button>
+      <button class="nav-item" data-page="devices">▣ <span>Devices</span></button>
+      <button class="nav-item" data-page="interfaces">◈ <span>Interfaces</span></button>
+      <button class="nav-item" data-page="traffic">⌁ <span>Traffic Analytics</span></button>
+      <button class="nav-item" data-page="alerts">♧ <span>Alerts</span></button>
+      <button class="nav-item" data-page="sites">⌂ <span>Sites</span></button>
+      <button class="nav-item" data-page="topology">⌘ <span>Topology</span></button>
+      <button class="nav-item" data-page="reports">▤ <span>Network Reports</span></button>
+      <button class="nav-item" data-page="wallboard">▰ <span>NOC Wallboard</span></button>
+      <div class="nav-title gap">SMART CITY</div>
+      <button class="nav-item" data-page="cctv">◉ <span>CCTV Network</span></button>
+      <button class="nav-item" data-page="camera-inventory">▤ <span>Camera Inventory</span></button>
+      <button class="nav-item" data-page="maintenance">⌁ <span>Maintenance</span></button>
+      <button class="nav-item" data-page="calendar">◫ <span>Maintenance Calendar</span></button>
+      <button class="nav-item" data-page="camera-reports">▤ <span>Camera Reports</span></button>
+      <div class="nav-title gap">SYSTEM</div>
+      <button class="nav-item" data-page="settings">⚙ <span>Settings</span></button>
+      <button class="nav-item" data-page="audit">▥ <span>Audit Logs</span></button>
+    </nav>
+    <div class="sidebar-foot">LIVE • SNMP / ICMP ENGINE</div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="page-title" id="page-title">Dashboard</div>
+      <div class="top-actions">
+        <div class="search"><span>⌕</span><input id="global-search" placeholder="Search devices, IP, vendor..."></div>
+        <div class="live-badge"><span class="pulse" id="ws-dot"></span><span id="ws-label">CONNECTING</span></div>
+        <button class="icon-btn" id="refresh-btn">↻</button><div class="avatar">K</div>
+      </div>
+    </header>
+
+    <section class="content" id="page-dashboard">
+      <div class="welcome"><h1>Welcome back, Kim 👋</h1><p>Live network visibility across the Smart City infrastructure.</p></div>
+      <div class="kpi-grid">
+        <div class="card kpi"><div class="kpi-label">TOTAL DEVICES <span>▣</span></div><div class="kpi-value" id="kpi-total">0</div><div class="kpi-sub neutral">Live inventory</div></div>
+        <div class="card kpi"><div class="kpi-label">ONLINE DEVICES <span class="green">✓</span></div><div class="kpi-value" id="kpi-online">0</div><div class="kpi-sub good" id="kpi-online-sub">0% availability</div></div>
+        <div class="card kpi"><div class="kpi-label">OFFLINE DEVICES <span class="red">!</span></div><div class="kpi-value" id="kpi-offline">0</div><div class="kpi-sub bad">Current polling state</div></div>
+        <div class="card kpi"><div class="kpi-label">ACTIVE ALERTS <span class="amber">◉</span></div><div class="kpi-value" id="kpi-alerts">0</div><div class="kpi-sub bad" id="kpi-critical">0 critical</div></div>
+        <div class="card kpi"><div class="kpi-label">CAMERAS ONLINE <span>◉</span></div><div class="kpi-value" id="kpi-cameras">0</div><div class="kpi-sub neutral" id="kpi-camera-sub">0 total cameras</div></div>
+        <div class="card kpi"><div class="kpi-label">INTERFACES UP <span class="cyan">⌁</span></div><div class="kpi-value" id="kpi-ifaces">0</div><div class="kpi-sub neutral" id="kpi-iface-sub">0 interfaces discovered</div></div>
+      </div>
+
+      <div class="dash-grid">
+        <div class="card health-card"><div class="card-head"><div><h3>Network Health</h3><p>Live availability from polling engine</p></div><div class="pill live">LIVE</div></div><div class="health-wrap"><div class="ring" id="health-ring"><div><strong id="health-value">0%</strong><span>NETWORK HEALTH</span></div></div></div></div>
+        <div class="card status-card"><div class="card-head"><div><h3>Device Status</h3><p>Distribution across the network</p></div></div><div class="status-body"><div class="donut" id="status-donut"><div><strong id="status-total">0</strong><span>TOTAL</span></div></div><div class="legend"><div><i class="dot green-dot"></i>Online <b id="legend-online">0</b></div><div><i class="dot red-dot"></i>Offline <b id="legend-offline">0</b></div><div><i class="dot amber-dot"></i>Warning <b id="legend-warning">0</b></div></div></div></div>
+        <div class="card activity-card"><div class="card-head"><div><h3>Recent Alerts</h3><p>Latest network events</p></div><button class="link-btn" data-page-link="alerts">View all</button></div><div id="recent-alerts" class="activity-list"><div class="empty">No active alerts.</div></div></div>
+      </div>
+
+      <div class="two-col">
+        <div class="card"><div class="card-head"><div><h3>Live Device List</h3><p>Latest polling state</p></div><button class="primary small" data-page-link="devices">Manage devices</button></div><div class="table-wrap"><table><thead><tr><th>DEVICE</th><th>IP</th><th>VENDOR</th><th>STATUS</th><th>CPU</th><th>LATENCY</th><th>LAST POLL</th></tr></thead><tbody id="dash-devices"></tbody></table></div></div>
+        <div class="card"><div class="card-head"><div><h3>Live Polling Activity</h3><p>Events received over WebSocket</p></div></div><div class="mini-chart" id="activity-chart"></div></div>
+      </div>
+    </section>
+
+    <section class="content hidden" id="page-devices">
+      <div class="section-top"><div><h1>Devices</h1><p id="device-count-label">0 monitored devices</p></div><button class="primary" id="add-device-btn">+ Add Device</button></div>
+      <div class="filters card"><div class="field grow"><input id="device-search" placeholder="Search hostname, IP, vendor..."></div><select id="device-status-filter"><option value="">All Status</option><option value="online">Online</option><option value="offline">Offline</option><option value="warning">Warning</option><option value="unknown">Unknown</option></select><select id="device-vendor-filter"><option value="">All Vendors</option></select></div>
+      <div class="card"><div class="table-wrap tall"><table><thead><tr><th>DEVICE NAME</th><th>IP</th><th>VENDOR</th><th>TYPE</th><th>SITE</th><th>STATUS</th><th>CPU</th><th>UPTIME</th><th>LAST POLL</th></tr></thead><tbody id="devices-table"></tbody></table></div></div>
+    </section>
+
+    <section class="content hidden" id="page-alerts"><div class="section-top"><div><h1>Alerts</h1><p>Real events generated by SNMP / ICMP monitoring.</p></div></div><div class="filters card"><select id="alert-filter"><option value="active">Active</option><option value="all">All</option><option value="resolved">Resolved</option></select></div><div class="card"><div class="table-wrap"><table><thead><tr><th>SEVERITY</th><th>DEVICE</th><th>EVENT</th><th>MESSAGE</th><th>FIRST DETECTED</th><th>STATUS</th><th></th></tr></thead><tbody id="alerts-table"></tbody></table></div></div></section>
+    <section class="content hidden" id="page-map"><div class="section-top"><div><h1>Network Map</h1><p>Live device-state map. Topology relationships can be layered in next.</p></div></div><div class="card map-card"><div class="map-grid" id="map-grid"></div></div></section>
+    <section class="content hidden" id="page-interfaces"><div class="section-top"><div><h1>Interfaces</h1><p>Live interface status and traffic discovered through SNMP.</p></div></div><div class="card"><div class="table-wrap tall"><table><thead><tr><th>DEVICE</th><th>INTERFACE</th><th>STATUS</th><th>SPEED</th><th>RX</th><th>TX</th><th>ERRORS</th><th>DISCARDS</th></tr></thead><tbody id="interfaces-table"></tbody></table></div></div></section>
+    <section class="content hidden" id="page-sites"><div class="section-top"><div><h1>Sites</h1><p>Smart City locations and their device counts.</p></div><button class="primary" id="add-site-btn">+ Add Site</button></div><div class="site-grid" id="sites-grid"></div></section>
+    <section class="content hidden" id="page-wallboard"><div class="wallboard" id="wallboard"></div></section>
+
+    <section class="content hidden placeholder" id="page-traffic"><h1>Traffic Analytics</h1><p>Interface traffic is available from the live interface and device views.</p></section>
+    <section class="content hidden placeholder" id="page-topology"><h1>Topology</h1><p>Dependency-aware topology is the next build layer.</p></section>
+    <section class="content hidden placeholder" id="page-reports"><h1>Network Reports</h1><p>Report export is scaffolded for daily, weekly and availability reports.</p></section>
+    <section class="content hidden placeholder" id="page-cctv"><h1>CCTV Network</h1><p>Classify devices as Camera/NVR to surface them in Smart City views.</p></section>
+    <section class="content hidden placeholder" id="page-camera-inventory"><h1>Camera Inventory</h1><p>Use Devices → Add Device and select Camera.</p></section>
+    <section class="content hidden placeholder" id="page-maintenance"><h1>Maintenance</h1><p>Maintenance mode hooks are ready for the production layer.</p></section>
+    <section class="content hidden placeholder" id="page-calendar"><h1>Maintenance Calendar</h1><p>Calendar UI scaffold.</p></section>
+    <section class="content hidden placeholder" id="page-camera-reports"><h1>Camera Reports</h1><p>Camera reporting scaffold.</p></section>
+    <section class="content hidden placeholder" id="page-settings"><h1>Settings</h1><p>Server and polling configuration is controlled through environment variables in this first installable release.</p></section>
+    <section class="content hidden placeholder" id="page-audit"><h1>Audit Logs</h1><p>Audit logging is planned for the next security layer.</p></section>
+  </main>
+
+  <div class="modal hidden" id="device-modal"><div class="modal-box"><div class="modal-head"><div><h2>Add Device</h2><p>Configure SNMP v2c or ICMP fallback.</p></div><button class="close" data-close="device-modal">×</button></div><form id="device-form"><div class="form-grid"><label>Name<input name="name" required placeholder="Abanao Core Switch"></label><label>IP Address<input name="ip" required placeholder="10.50.20.1"></label><label>Device Type<select name="device_type"><option>Network Device</option><option>Router</option><option>Switch</option><option>Firewall</option><option>Camera</option><option>NVR</option><option>Server</option><option>Air Quality Sensor</option></select></label><label>Site ID<input name="site_id" type="number" placeholder="optional"></label><label>SNMP Version<select name="snmp_version"><option value="2c">SNMP v2c</option></select></label><label>Community<input name="community" type="password" placeholder="public"></label><label>Poll Interval (sec)<input name="poll_interval" type="number" min="5" value="10"></label></div><div class="modal-actions"><button type="button" class="secondary" id="test-snmp">Test SNMP</button><span id="snmp-result" class="form-note"></span><button class="primary" type="submit">Save Device</button></div></form></div></div>
+  <div class="modal hidden" id="detail-modal"><div class="modal-box wide"><div id="detail-content"></div></div></div>
+  <div class="toast" id="toast"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
