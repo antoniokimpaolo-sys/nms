@@ -53,10 +53,10 @@ function brandLogoHtml(d){
     return '<div class="brand-badge brand-generic" title="Generic device">'+icon+'</div>';
   }
   const src="https://cdn.simpleicons.org/"+p.slug;
-  return '<div class="brand-badge '+p.className+'" title="'+esc(p.label)+'">'+
-    '<img src="'+src+'" alt="'+esc(p.label)+'" loading="lazy" onerror="this.style.display=\\'none\\';this.nextElementSibling.style.display=\\'grid\\';">'+
-    '<span>'+esc(p.fallback)+'</span>'+
-  '</div>';
+  return `<div class="brand-badge ${p.className}" title="${esc(p.label)}">
+    <img src="${src}" alt="${esc(p.label)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid';">
+    <span>${esc(p.fallback)}</span>
+  </div>`;
 }
 
 function statusPill(s){return `<span class="status ${esc(s)}"><i></i>${esc((s||'unknown').toUpperCase())}</span>`;}
