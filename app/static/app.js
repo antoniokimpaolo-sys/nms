@@ -95,7 +95,7 @@ async function openEditDeviceModal(id){
     $('#device-modal').classList.remove('hidden');
   }catch(err){
     console.error(err);
-    toast('Failed to load device');
+    toast('Failed to load device: '+(err.message||'check API'));
   }
 }
 async function saveDeviceForm(e){
