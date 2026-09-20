@@ -40,7 +40,7 @@ async function loadRecentAlerts(){const a=await api('/api/alerts?status=active&l
 
 function renderActivity(){const box=$('#activity-chart');if(!box)return;box.innerHTML='';const a=Array.from({length:28},(_,i)=>activity[i]||0);a.forEach(v=>{const b=document.createElement('div');b.className='mini-bar';b.style.height=`${8+Math.min(92,v*18)}%`;box.appendChild(b);});}
 
-async function renderDevices(){let q=$('#device-search').value.trim();let st=$('#device-status-filter').value;const query=new URLSearchParams();if(q)query.set('q',q);if(st)query.set('status',st);const devs=await api('/api/devices?'+query.toString());devicesCache=devs;$('#device-count-label').textContent=`${devs.length} monitored devices`;const vendors=[...new Set(devs.map(d=>d.vendor).filter(Boolean))].sort();const sel=$('#device-vendor-filter');const keep=sel.value;sel.innerHTML='<option value="">All Vendors</option>'+vendors.map(v=>`<option>${esc(v)}</option>`).join('');sel.value=keep;$('#devices-table').innerHTML=devs.map(d=>`<tr data-device-id="${d.id}" class="device-row"><td><strong>${esc(d.name)}</strong></td><td>${esc(d.ip)}</td><td>${esc(d.vendor||'—')}</td><td>${esc(d.device_type||'—')}</td><td>${esc(d.site||'—')}</td><td>${statusPill(d.status)}</td><td>${d.cpu_percent==null?'—':d.cpu_percent+'%'}</td><td>${uptime(d.uptime_seconds)}</td><td>${fmtAge(d.last_poll_at)}</td></tr>`).join('')||'<tr><td colspan="9" class="empty">No matching devices.</td></tr>'; $$('#devices-table .device-row').forEach(x=>x.onclick=()=>openDevice(x.dataset.deviceId));}
+async function renderDevices(){let q=$('#device-search').value.trim();let st=$('#device-status-filter').value;const query=new URLSearchParams();if(q)query.set('q',q);if(st)query.set('status',st);const devs=await api('/api/devices?'+query.toString());devicesCache=devs;$('#device-count-label').textContent=`${devs.length} monitored devices`;const vendors=[...new Set(devs.map(d=>d.vendor).filter(Boolean))].sort();const sel=$('#device-vendor-filter');const keep=sel.value;sel.innerHTML='<option value="">All Vendors</option>'+vendors.map(v=>`<option>${esc(v)}</option>`).join('');sel.value=keep;$('#devices-table').innerHTML=devs.map(d=>`<tr data-device-id="${d.id}" class="device-row"><td><strong>${esc(d.name)}</strong></td><td>${esc(d.ip)}</td><td>${esc(d.vendor||'—')}</td><td>${esc(d.device_type||'—')}</td><td>${esc(d.site||'—')}</td><td>${statusPill(d.status)}</td><td>${d.cpu_percent==null?'—':d.cpu_percent+'%'}</td><td>${uptime(d.uptime_seconds)}</td><td>${fmtAge(d.last_poll_at)}</td><td><div class="row-actions"><button class="table-action" onclick="openEditDeviceModal(${d.id});event.stopPropagation()">Edit</button><button class="table-action danger" onclick="deleteDeviceQuick(${d.id});event.stopPropagation()">Delete</button></div></td></tr>`).join('')||'<tr><td colspan="9" class="empty">No matching devices.</td></tr>'; $$('#devices-table .device-row').forEach(x=>x.onclick=()=>openDevice(x.dataset.deviceId));}
 
 async function renderAlerts(){const f=$('#alert-filter').value;const a=await api('/api/alerts?status='+f+'&limit=200');$('#alerts-table').innerHTML=a.map(x=>`<tr><td><span class="status ${x.severity==='critical'||x.severity==='major'?'offline':'warning'}"><i></i>${esc(x.severity.toUpperCase())}</span></td><td><strong>${esc(x.device||'—')}</strong><br><span class="muted">${esc(x.ip||'')}</span></td><td>${esc(x.type)}</td><td>${esc(x.message)}</td><td>${new Date(x.first_detected).toLocaleString()}</td><td>${esc(x.status)}</td><td>${x.status==='active'?`<button class="link-btn" onclick="ackAlert(${x.id})">Acknowledge</button>`:''}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No alerts.</td></tr>';}
 async function ackAlert(id){await api(`/api/alerts/${id}/acknowledge`,{method:'POST'});toast('Alert acknowledged');renderAlerts();loadDashboard();}
@@ -55,7 +55,98 @@ window.openDevice=async function(id){const d=await api(`/api/devices/${id}`);con
 
 function renderWallboard(){const d=devicesCache;$('#wallboard').innerHTML=`<div class="wb"><div class="muted">TOTAL DEVICES</div><div class="n">${d.length}</div></div><div class="wb"><div class="muted">ONLINE</div><div class="n good">${d.filter(x=>x.status==='online').length}</div></div><div class="wb"><div class="muted">OFFLINE</div><div class="n bad">${d.filter(x=>x.status==='offline').length}</div></div><div class="wb"><div class="muted">CCTV ONLINE</div><div class="n">${d.filter(x=>x.device_type==='Camera'&&x.status==='online').length}</div></div><div class="wb" style="grid-column:1/-1"><div class="muted">TOP OFFLINE DEVICES</div>${d.filter(x=>x.status==='offline').slice(0,8).map(x=>`<div style="padding:10px 0;border-bottom:1px solid #222937">🔴 ${esc(x.name)} <span class="muted">${esc(x.ip)}</span></div>`).join('')||'<div class="muted" style="padding-top:12px">No offline devices.</div>'}</div>`;}
 
-async function addDevice(e){e.preventDefault();const f=new FormData(e.target);const payload={name:f.get('name'),ip:f.get('ip'),device_type:f.get('device_type'),site_id:f.get('site_id')?Number(f.get('site_id')):null,snmp_version:f.get('snmp_version'),community:f.get('community')||null,poll_interval:Number(f.get('poll_interval')||10)};try{await api('/api/devices',{method:'POST',body:JSON.stringify(payload)});$('#device-modal').classList.add('hidden');e.target.reset();toast('Device added — live polling will start automatically');loadDashboard();renderDevices();}catch(err){toast('Failed to add device');console.error(err);}}
+
+function resetDeviceModal(){
+  const form=$('#device-form');
+  form.reset();
+  form.elements.device_id.value='';
+  form.elements.poll_interval.value=10;
+  $('#device-modal-title').textContent='Add Device';
+  $('#device-modal-subtitle').textContent='Configure SNMP v2c or ICMP fallback.';
+  $('#save-device-btn').textContent='Save Device';
+  $('#delete-device-btn').classList.add('hidden');
+  $('#snmp-result').textContent='';
+  $('#snmp-result').style.color='';
+}
+function openAddDeviceModal(){
+  resetDeviceModal();
+  $('#device-modal').classList.remove('hidden');
+}
+async function openEditDeviceModal(id){
+  try{
+    const d=await api('/api/devices/'+id);
+    resetDeviceModal();
+    const form=$('#device-form');
+    form.elements.device_id.value=d.id;
+    form.elements.name.value=d.name||'';
+    form.elements.ip.value=d.ip||'';
+    form.elements.hostname.value=d.hostname||'';
+    form.elements.vendor.value=d.vendor||'';
+    form.elements.model.value=d.model||'';
+    form.elements.device_type.value=d.device_type||'Network Device';
+    form.elements.site_id.value=d.site_id||'';
+    form.elements.snmp_version.value=d.snmp_version||'2c';
+    form.elements.community.value='';
+    form.elements.poll_interval.value=d.poll_interval||10;
+    $('#device-modal-title').textContent='Edit Device';
+    $('#device-modal-subtitle').textContent='Update device settings. Leave Community blank to keep the existing credential.';
+    $('#save-device-btn').textContent='Update Device';
+    $('#delete-device-btn').classList.remove('hidden');
+    $('#device-modal').classList.remove('hidden');
+  }catch(err){
+    console.error(err);
+    toast('Failed to load device');
+  }
+}
+async function saveDeviceForm(e){
+  e.preventDefault();
+  const f=new FormData(e.target);
+  const id=f.get('device_id');
+  const payload={
+    name:f.get('name'),
+    ip:f.get('ip'),
+    hostname:f.get('hostname')||null,
+    vendor:f.get('vendor')||null,
+    model:f.get('model')||null,
+    device_type:f.get('device_type'),
+    site_id:f.get('site_id')?Number(f.get('site_id')):null,
+    snmp_version:f.get('snmp_version'),
+    community:f.get('community')||null,
+    poll_interval:Number(f.get('poll_interval')||10)
+  };
+  try{
+    if(id){
+      await api('/api/devices/'+id,{method:'PUT',body:JSON.stringify(payload)});
+      toast('Device updated');
+    }else{
+      await api('/api/devices',{method:'POST',body:JSON.stringify(payload)});
+      toast('Device added — scheduled polling will use the configured interval');
+    }
+    $('#device-modal').classList.add('hidden');
+    await loadDashboard();
+    await renderDevices();
+  }catch(err){
+    console.error(err);
+    const msg=String(err.message||'').includes('409')?'Another device already uses that IP':'Failed to save device';
+    toast(msg);
+  }
+}
+async function deleteCurrentDevice(){
+  const id=$('#device-form').elements.device_id.value;
+  if(!id)return;
+  const name=$('#device-form').elements.name.value;
+  if(!confirm('Delete "'+name+'"? This removes the device and its monitoring data.'))return;
+  try{
+    await api('/api/devices/'+id,{method:'DELETE'});
+    $('#device-modal').classList.add('hidden');
+    toast('Device deleted');
+    await loadDashboard();
+    await renderDevices();
+  }catch(err){
+    console.error(err);
+    toast('Failed to delete device');
+  }
+}
 
 async function testSNMP(){const f=new FormData($('#device-form'));const result=$('#snmp-result');result.textContent='Testing...';result.style.color='var(--muted)';try{const r=await api('/api/snmp/test',{method:'POST',body:JSON.stringify({ip:f.get('ip'),community:f.get('community')||'public',port:161,timeout:5})});const parts=[];if(r.profile)parts.push(r.profile);if(r.model)parts.push(r.model);if(r.firmware)parts.push(r.firmware);if(r.message)parts.push(r.message);result.textContent=r.ok?('SNMP OK — '+parts.join(' • ')):(r.message||r.error||'SNMP test failed');result.style.color=r.ok?'var(--green)':'var(--red)';}catch(err){result.textContent='Test error';result.style.color='var(--red)';}}
 
@@ -67,8 +158,24 @@ $$('.nav-item').forEach(b=>b.addEventListener('click',()=>setPage(b.dataset.page
 $$('[data-page-link]').forEach(b=>b.addEventListener('click',()=>setPage(b.dataset.pageLink)));
 $('#refresh-btn').onclick=()=>loadDashboard().catch(console.error);
 $('#device-search').oninput=()=>renderDevices();$('#device-status-filter').onchange=()=>renderDevices();$('#alert-filter').onchange=()=>renderAlerts();
-$('#add-device-btn').onclick=()=>$('#device-modal').classList.remove('hidden');$('#add-site-btn').onclick=addSite;$('#device-form').onsubmit=addDevice;$('#test-snmp').onclick=testSNMP;
+$('#add-device-btn').onclick=openAddDeviceModal;$('#add-site-btn').onclick=addSite;$('#device-form').onsubmit=saveDeviceForm;$('#test-snmp').onclick=testSNMP;$('#delete-device-btn').onclick=deleteCurrentDevice;
 $$('[data-close]').forEach(b=>b.addEventListener('click',()=>document.getElementById(b.dataset.close).classList.add('hidden')));
 $('#global-search').onkeydown=(e)=>{if(e.key==='Enter'){setPage('devices');$('#device-search').value=e.target.value;renderDevices();}};
 
 loadDashboard().catch(err=>{console.error(err);toast('Backend is starting — retrying');setTimeout(()=>loadDashboard().catch(console.error),2500)});connectWS();
+
+async function deleteDeviceQuick(id){
+  const d=devicesCache.find(x=>x.id===Number(id));
+  if(!confirm('Delete "'+(d?.name||'device')+'"? This removes the device and its monitoring data.'))return;
+  try{
+    await api('/api/devices/'+id,{method:'DELETE'});
+    toast('Device deleted');
+    await loadDashboard();
+    await renderDevices();
+  }catch(err){
+    console.error(err);
+    toast('Failed to delete device');
+  }
+}
+window.openEditDeviceModal=openEditDeviceModal;
+window.deleteDeviceQuick=deleteDeviceQuick;
