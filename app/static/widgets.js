@@ -1,5 +1,30 @@
 
 (function(){
+  function esc(v){
+    return String(v ?? '').replace(/[&<>\"']/g,m=>({
+      '&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'
+    }[m]));
+  }
+  function fmtAge(iso){
+    if(!iso)return '—';
+    const sec=Math.max(0,Math.floor((Date.now()-new Date(iso).getTime())/1000));
+    if(sec<60)return sec+'s ago';
+    if(sec<3600)return Math.floor(sec/60)+'m ago';
+    return Math.floor(sec/3600)+'h ago';
+  }
+  function uptime(sec){
+    if(!sec)return '—';
+    const d=Math.floor(sec/86400),h=Math.floor((sec%86400)/3600),m=Math.floor((sec%3600)/60);
+    return d+'d '+h+'h '+m+'m';
+  }
+  function bps(v){
+    if(v==null)return '—';
+    const n=Number(v);
+    if(n>=1e9)return (n/1e9).toFixed(2)+' Gbps';
+    if(n>=1e6)return (n/1e6).toFixed(1)+' Mbps';
+    if(n>=1e3)return (n/1e3).toFixed(1)+' Kbps';
+    return n.toFixed(0)+' bps';
+  }
   const CATALOG = {
     "device-summary": {title:"Device Summary", subtitle:"Devices, ports and availability", size:"wide", icon:"▣"},
     "availability-map": {title:"Availability Map", subtitle:"Live status by monitored device", size:"wide", icon:"◉"},
