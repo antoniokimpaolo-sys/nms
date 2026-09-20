@@ -23,13 +23,27 @@ def _tlv(tag: int, payload: bytes) -> bytes:
 
 
 def _enc_int(n: int) -> bytes:
+    """Encode a BER INTEGER payload without signed-size overflow."""
     if n == 0:
         return b"\x00"
-    bits = ((-n).bit_length() + 7) // 8 + 1 if n < 0 else max(1, (n.bit_length() + 7) // 8)
-    raw = n.to_bytes(bits, "big", signed=True)
-    if n >= 0 and raw[0] & 0x80:
-        raw = b"\x00" + raw
-    return raw
+
+    if n > 0:
+        length = max(1, (n.bit_length() + 7) // 8)
+        raw = n.to_bytes(length, "big", signed=False)
+        if raw[0] & 0x80:
+            raw = b"\x00" + raw
+        return raw
+
+    length = max(1, ((-n).bit_length() + 8) // 8)
+    while True:
+        try:
+            raw = n.to_bytes(length, "big", signed=True)
+            if length > 1 and raw[0] == 0xFF and raw[1] & 0x80:
+                length -= 1
+                continue
+            return raw
+        except OverflowError:
+            length += 1
 
 
 def encode_oid(oid: str) -> bytes:
