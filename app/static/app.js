@@ -239,7 +239,13 @@ async function testSNMP(){const f=new FormData($('#device-form'));const result=$
 
 async function addSite(){const name=prompt('Site name');if(!name)return;try{await api('/api/sites',{method:'POST',body:JSON.stringify({name})});toast('Site created');loadSites();}catch{toast('Failed to create site');}}
 
-function connectWS(){const proto=location.protocol==='https:'?'wss':'ws';const ws=new WebSocket(`${proto}://${location.host}/ws/live`);ws.onopen=()=>{$('#ws-dot').classList.add('ok');$('#ws-label').textContent='LIVE';};ws.onclose=()=>{ $('#ws-dot').classList.remove('ok');$('#ws-label').textContent='RECONNECTING';setTimeout(connectWS,2000);};ws.onmessage=(e)=>{const msg=JSON.parse(e.data);if(msg.event==='device.updated'){activity.push(1);activity=activity.slice(-28);renderActivity();loadDashboard();if(!$('#page-devices').classList.contains('hidden'))renderDevices();}};setInterval(()=>{if(ws.readyState===1)ws.send('ping')},15000);}
+function connectWS(){
+  // WebSocket/live streaming is intentionally disabled.
+  // Dashboard data is refreshed on a scheduled polling interval instead.
+  const dot=$('#ws-dot'), label=$('#ws-label');
+  if(dot) dot.classList.add('ok');
+  if(label) label.textContent='SCHEDULED';
+}
 
 $$('.nav-item').forEach(b=>b.addEventListener('click',()=>setPage(b.dataset.page)));
 $$('[data-page-link]').forEach(b=>b.addEventListener('click',()=>setPage(b.dataset.pageLink)));
@@ -249,7 +255,9 @@ $('#add-device-btn').onclick=openAddDeviceModal;$('#add-site-btn').onclick=addSi
 $$('[data-close]').forEach(b=>b.addEventListener('click',()=>document.getElementById(b.dataset.close).classList.add('hidden')));
 $('#global-search').onkeydown=(e)=>{if(e.key==='Enter'){setPage('devices');$('#device-search').value=e.target.value;renderDevices();}};
 
-loadDashboard().catch(err=>{console.error(err);toast('Backend is starting — retrying');setTimeout(()=>loadDashboard().catch(console.error),2500)});connectWS();
+loadDashboard().catch(err=>{console.error(err);toast('Backend is starting — retrying');setTimeout(()=>loadDashboard().catch(console.error),2500)});
+connectWS();
+setInterval(()=>loadDashboard().catch(console.error), 30000);
 
 async function deleteDeviceQuick(id){
   const d=devicesCache.find(x=>x.id===Number(id));
